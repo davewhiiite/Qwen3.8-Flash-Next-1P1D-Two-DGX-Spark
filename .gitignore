@@ -1,0 +1,142 @@
+# Allowlist. Everything is ignored; only the files a fresh clone needs in
+# order to run are re-included below. Add new run files here explicitly.
+*
+
+# Descend into directories so the rules below can match inside them.
+# (Git tracks files, not directories, so this adds nothing by itself.)
+!*/
+
+# --- github metadata ---------------------------------------------------
+!/.github/FUNDING.yml
+!/.github/PULL_REQUEST_TEMPLATE.md
+!/.github/ISSUE_TEMPLATE/config.yml
+!/.github/ISSUE_TEMPLATE/1_bug.md
+!/.github/ISSUE_TEMPLATE/2_improvement.md
+!/.github/ISSUE_TEMPLATE/3_feature_request.md
+
+# --- top level ---------------------------------------------------------
+!/.gitignore
+!/LICENSE
+!/README.md
+!/CHANGELOG.md
+# the serving profile. /.env itself stays ignored: it may hold HF_TOKEN.
+!/.env.sample
+!/download.sh
+!/start.sh
+!/stop.sh
+# --- systemd USER units (24/7 supervisor, maintenance, heartbeat, OnFailure=) --
+!/systemd/qwen38-flash-supervisor.service
+!/systemd/qwen38-flash-maintenance.service
+!/systemd/qwen38-flash-maintenance.timer
+!/systemd/qwen38-flash-heartbeat.timer
+!/systemd/qwen38-flash-supervisor-failure@.service
+
+# --- launcher support and patch generators -----------------------------
+!/scripts/smoke-test.sh
+!/scripts/start-memwatch.sh
+!/scripts/supervise.sh
+!/scripts/health-probe.sh
+!/scripts/maintenance-relaunch.sh
+!/scripts/alert.sh
+!/scripts/memwatch-rotate.sh
+!/scripts/heartbeat.sh
+!/files/memwatch.sh
+!/files/build_ple_packed_table.py
+!/files/patch_ple_layer.py
+!/files/patch_modelopt_mxfp8.py
+!/files/patch_ple_offload.py
+!/files/mtp_block.py
+!/files/patch_qsa_fp8_kv.py
+!/files/patch_determinism.py
+!/files/patch_mtp_draft_vocab.py
+# shipped reduced draft vocabulary (47,149 ids, code-tuned). The 65k en+code
+# vocab the +25% decode win was measured with is a generated artifact and is
+# not tracked; this smaller file makes the default path work out of the box.
+!/files/draft_vocab_en_code_47k.txt
+# Spanish-extended variant (65,536 rows, the 47k file as floor + Spanish
+# Wikipedia; +28.6% Spanish decode, English untouched). For deployments
+# serving Spanish traffic; see docs/spanish-drafting-and-performance-*.md.
+!/files/draft_vocab_es_en_code_65k.txt
+# builds the reduced draft vocabulary the MTP patch reads. Its output is a
+# generated artifact and lives in ~/.cache/vllm/draft_vocab/, not here.
+!/files/build_draft_vocab.py
+# extends a shipped vocab with a second language, floor-only + byte-fallback
+# pin (oscarmenendezgarcia). Built the 65k ES file above.
+!/files/build_draft_vocab_extend.py
+# recommended kernel VM tunables (not applied by anything here)
+!/files/sysctl-spark3.conf
+# vision smoke-test fixture (13 KB, 400x225 JPEG: Qwen3.8-Flash-Next release
+# countdown page). Checked in so smoke-test.sh needs no network to verify the
+# multimodal path.
+!/files/smoke-vision-fixture.jpeg
+# replacement chat template for CHAT_TEMPLATE (start.sh mounts it read-only
+# and switches the tool parser to qwen3_xml). v22.5, Apache-2.0.
+!/files/chat-template/chat_template.jinja
+
+# --- regression tests ---------------------------------------------------
+# CPU-only, run inside the pinned image against the patched modelopt.py/
+# ple_layer.py; see README for the docker invocation.
+!/tests/test_nvidia_ple.py
+!/tests/test_nvidia_mtp.py
+!/tests/test_ple_staging_width.py
+!/tests/test_determinism_patch.py
+!/tests/test_mtp_block.py
+
+# --- benchmark harness (2026-09-05/06 overnight sweep) ------------------
+# The published numbers are sparkDash's; these drive sparkDash one
+# concurrency level at a time and read the vLLM counters around each level,
+# which is what makes ms/step and tokens/step comparable across launches.
+!/bench/sweep.py
+!/bench/mixed.py
+# structured (counting-stream) concurrent decode bench for when sparkDash is
+# not running; the 2026-09-11 README row was measured with it.
+!/bench/structured.py
+# Spanish quality gate + comparable-protocol bench (oscarmenendezgarcia);
+# the Spanish write-up below cites them.
+!/bench/audit-spanish.py
+!/bench/structured-protocol.py
+!/bench/verify-smoke.py
+
+# --- measurement write-ups ---------------------------------------------
+# Host-specific, but they carry the numbers the README and CHANGELOG cite.
+!/docs/synthesis-astra-fable-2026-09-05.md
+!/docs/overnight-2026-09-05.md
+!/docs/goal-overnight-2026-09-05.md
+# Serving Spanish: draft-vocab coverage, per-mode sampling, benchmark
+# comparability (oscarmenendezgarcia). The 65k ES-extended vocab cites it.
+!/docs/spanish-drafting-and-performance-2026-09-13.md
+
+# --- API usage reporting and CPU-only regression ------------------------
+!/docs/cache-reporting.md
+!/tests/test_prompt_token_details.py
+
+# --- opt-in MTP patch: vllm#53388 block-drop backport --------------------
+# Generator only. start.sh runs it when MTP_DISABLE_BLOCK_DROP=1; its output
+# (files/block_drop/) stays ignored. The test runs on the host, CPU only.
+!/files/patch_block_drop.py
+!/tests/test_block_drop.py
+
+# --- opt-in vLLM 0.30 lane (start-v030.sh) -------------------------------
+# Generators only; files/v030_fp8kv/, files/v030_ple/ and
+# files/mtp_v030_patched.py* are generated per launch and stay ignored.
+!/start-v030.sh
+!/scripts/launch-lane.sh
+!/files/patch_mtp_draft_vocab_v030.py
+!/files/patch_qsa_fp8_kv_v030.py
+!/files/patch_ple_mmap_v030.py
+!/tests/test_v030_lane.py
+!/tests/test_qsa_fp8_kv_v030.py
+!/tests/test_ple_mmap_v030.py
+
+# Deliberately NOT tracked:
+#   bench/*                   the rest of the local benchmark scripts
+#   .env                      may contain HF_TOKEN
+#   HANDOFF.md, docs/*        the rest of the host-specific notes
+#   logs/, *.log              runtime output
+#   .last_launch.sh           regenerated by start.sh --no-launch
+#   files/*.orig,             upstream vLLM sources; start.sh extracts them
+#   files/ple_offload/orig/     from the image on first run
+#   files/ple_layer_patched.py, files/modelopt_patched.py,
+#   files/mtp_patched.py,
+#   files/ple_offload/*.py    generated from the .orig copies on every launch
+#   files/block_drop/         orig/ from the image, patched copies generated per launch
