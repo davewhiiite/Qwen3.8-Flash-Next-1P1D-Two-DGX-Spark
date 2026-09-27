@@ -149,13 +149,12 @@ ensure_env_file() { # $1=where $2=repo $3=side — upstream start.sh hard-errors
                     # stock single-Spark server. The pair launch overrides
                     # everything via upstream's env-wins rule.
   local where="$1" repo="$2" side="$3"
-  local probe="grep -Eq '^[A-Z_0-9]+=' '$repo/.env'"
   if [ "$where" = local ]; then
-    $probe && return 0
+    [[ -s "$repo/.env" ]] && return 0
     log "no .env in $repo — synthesizing from 1p1d/env.$side (KV_TRANSFER_ROLE stripped)"
     grep -E '^[A-Z_0-9]+=' "$SCRIPT_DIR/env.$side" | grep -v '^KV_TRANSFER_ROLE=' > "$repo/.env"
   else
-    dssh "$probe" && return 0
+    dssh "[[ -s '$repo/.env' ]]" && return 0
     log "no .env on box 2 — synthesizing from its 1p1d/env.$side (KV_TRANSFER_ROLE stripped)"
     dssh "grep -E '^[A-Z_0-9]+=' '$repo/1p1d/env.$side' | grep -v '^KV_TRANSFER_ROLE=' > '$repo/.env'"
   fi
