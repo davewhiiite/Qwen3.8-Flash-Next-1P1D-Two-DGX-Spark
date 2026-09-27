@@ -48,23 +48,20 @@ http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$1" 2>/dev/nu
 
 dssh() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$D_SSH" "$@"; }
 
-container_up() { # $1=name  — "up" if docker ps lists it as running
-  local where="$1" name="$2"
-  if [ "$where" = local ]; then
-    docker ps --filter "name=^/$name\$" --format '{{.Status}}' | grep -q '^Up'
+container_status() { # $1=where $2=name — human status or "absent"
+  local s=""
+  if [ "$1" = local ]; then
+    s=$(docker ps -a --filter "name=^/$2\$" --format '{{.Status}}')
   else
-    dssh "docker ps --filter 'name=^/$name\$' --format '{{.Status}}' | grep -q '^Up'"
+    s=$(dssh "docker ps -a --filter 'name=^/$2\$' --format '{{.Status}}'" || true)
   fi
+  s=${s%%$'\n'*}
+  echo "${s:-absent}"
 }
 
-container_status() { # $1=where $2=name — human status or "absent"
-  local s
-  if [ "$1" = local ]; then
-    s=$(docker ps -a --filter "name=^/$2\$" --format '{{.Status}}' | head -1)
-  else
-    s=$(dssh "docker ps -a --filter 'name=^/$2\$' --format '{{.Status}}' | head -1")
-  fi
-  echo "${s:-absent}"
+container_up() { # $1=where $2=name — no pipelines here: grep -q + pipefail
+  # turns docker's SIGPIPE (141) into a false "died" under load.
+  [[ "$(container_status "$1" "$2")" == Up* ]]
 }
 
 crash_tail() { # $1=where $2=name — print last error lines from container logs
