@@ -94,8 +94,8 @@ Docker, ~99 GiB free per box (or HF-cache rsync), the recipe's prerequisites fro
 
 ```bash
 # 1. clone the fork on BOTH boxes
-git clone https://github.com/davewhiiite/Qwen3.8-Flash-Next-Single-DGX-Spark.git
-cd Qwen3.8-Flash-Next-Single-DGX-Spark
+git clone https://github.com/davewhiiite/Qwen3.8-Flash-Next-1P1D-Two-DGX-Spark.git
+cd Qwen3.8-Flash-Next-1P1D-Two-DGX-Spark
 
 # 2. weights (their downloader, sha256-verified, resumable)
 ./download.sh                       # ~99 GiB, on both boxes

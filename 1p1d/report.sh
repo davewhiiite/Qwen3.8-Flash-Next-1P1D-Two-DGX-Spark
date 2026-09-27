@@ -24,7 +24,7 @@ log()  { printf '\033[1;36m[1p1d]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[1p1d] WARN:\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31m[1p1d] FATAL:\033[0m %s\n' "$*" >&2; exit 1; }
 
-ISSUES_URL="${REPORT_ISSUES_URL:-https://github.com/davewhiiite/Qwen3.8-Flash-Next-Single-DGX-Spark/issues}"
+ISSUES_URL="${REPORT_ISSUES_URL:-https://github.com/davewhiiite/Qwen3.8-Flash-Next-1P1D-Two-DGX-Spark/issues}"
 MODEL_ID_DEFAULT="models--Mia-AiLab--Qwen3.8-Flash-Next-NVFP4"
 
 http_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$1" 2>/dev/null; }
