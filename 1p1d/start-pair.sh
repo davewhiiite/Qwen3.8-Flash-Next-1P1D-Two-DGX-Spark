@@ -76,7 +76,7 @@ crash_tail() { # $1=where $2=name — print last error lines from container logs
 }
 
 wait_gate() { # $1=url $2=label $3=timeout_s $4=where $5=container
-  local url="$1" label="$2" timeout="$3" where="$4" name="$5" t0 now code
+  local url="$1" label="$2" timeout="$3" where="$4" name="$5" t0 now code absent_streak=0
   t0=$(date +%s); log "gating $label: polling $url (timeout ${timeout}s)"
   while :; do
     code=$(http_code "$url" || true)
@@ -85,10 +85,18 @@ wait_gate() { # $1=url $2=label $3=timeout_s $4=where $5=container
       return 0
     fi
     if ! container_up "$where" "$name"; then
-      warn "$label container '$name' is not running:"
-      container_status "$where" "$name"
-      crash_tail "$where" "$name"
-      fail "$label died during readiness gate"
+      absent_streak=$(( absent_streak + 1 ))
+      # transient docker-ps hiccups and supervisor rm+recreate windows are
+      # real: require 3 consecutive misses (~45s) before calling it dead.
+      if [ "$absent_streak" -ge 3 ]; then
+        warn "$label container '$name' absent ${absent_streak}x consecutively:"
+        container_status "$where" "$name"
+        crash_tail "$where" "$name"
+        fail "$label died during readiness gate"
+      fi
+      warn "$label container not visible (miss $absent_streak/3) — retrying"
+    else
+      absent_streak=0
     fi
     now=$(( $(date +%s) - t0 ))
     if [ $(( now % 60 )) -lt 16 ]; then
@@ -145,18 +153,19 @@ ensure_image_and_weights() { # $1=where $2=repodir — pull image + download.sh 
 ensure_env_file() { # $1=where $2=repo $3=side — upstream start.sh hard-errors
                     # without .env; a fresh fork clone has none (it may hold
                     # HF_TOKEN, so it's gitignored). Synthesize from the pool
-                    # env, MINUS the role pin — a plain ./start.sh must stay a
-                    # stock single-Spark server. The pair launch overrides
-                    # everything via upstream's env-wins rule.
+                    # env INCLUDING the KV_TRANSFER_ROLE pin: on rigs running
+                    # the upstream systemd supervisor, supervisor relaunches
+                    # read .env, so the role must live there too (a stripped
+                    # .env silently relaunches a stock, role-less pool).
   local where="$1" repo="$2" side="$3"
   if [ "$where" = local ]; then
     [[ -s "$repo/.env" ]] && return 0
-    log "no .env in $repo — synthesizing from 1p1d/env.$side (KV_TRANSFER_ROLE stripped)"
-    grep -E '^[A-Z_0-9]+=' "$SCRIPT_DIR/env.$side" | grep -v '^KV_TRANSFER_ROLE=' > "$repo/.env"
+    log "no .env in $repo — synthesizing from 1p1d/env.$side (role pin included)"
+    grep -E '^[A-Z_0-9]+=' "$SCRIPT_DIR/env.$side" > "$repo/.env"
   else
     dssh "[[ -s '$repo/.env' ]]" && return 0
-    log "no .env on box 2 — synthesizing from its 1p1d/env.$side (KV_TRANSFER_ROLE stripped)"
-    dssh "grep -E '^[A-Z_0-9]+=' '$repo/1p1d/env.$side' | grep -v '^KV_TRANSFER_ROLE=' > '$repo/.env'"
+    log "no .env on box 2 — synthesizing from its 1p1d/env.$side (role pin included)"
+    dssh "grep -E '^[A-Z_0-9]+=' '$repo/1p1d/env.$side' > '$repo/.env'"
   fi
 }
 
@@ -229,8 +238,8 @@ case "$MODE" in
     echo "  [gate ] curl $ROUTER_HEALTH/v1/models until 200"
     echo
     log "read-only checks:"
-    [ -s "$P_REPO/.env" ] && log "box 1 .env present" || warn "box 1 .env missing (start synthesizes it from env.P, KV role stripped)"
-    dssh "[ -s '$D_REPO/.env' ]" && log "box 2 .env present" || warn "box 2 .env missing (start synthesizes it from env.D, KV role stripped)"
+    [ -s "$P_REPO/.env" ] && log "box 1 .env present" || warn "box 1 .env missing (start synthesizes it from env.P, role pin included)"
+    dssh "[[ -s '$D_REPO/.env' ]]" && log "box 2 .env present" || warn "box 2 .env missing (start synthesizes it from env.D, role pin included)"
     docker image inspect "$IMAGE" >/dev/null 2>&1 && log "box 1 image present: $IMAGE" || warn "box 1 image missing: $IMAGE (start would pull)"
     dssh "docker image inspect '$IMAGE' >/dev/null 2>&1" && log "box 2 image present: $IMAGE" || warn "box 2 image missing: $IMAGE (start would pull)"
     (cd "$P_REPO" && [ -e "${HF_HOME:-$HOME/.cache/huggingface}/hub/models--Mia-AiLab--Qwen3.8-Flash-Next-NVFP4/refs/main" ] && log "box 1 checkpoint snapshot present" || warn "box 1 checkpoint missing (start runs ./download.sh)")
