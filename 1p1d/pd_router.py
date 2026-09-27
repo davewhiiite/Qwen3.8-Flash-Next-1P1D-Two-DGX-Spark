@@ -28,9 +28,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 # FN 1P1D pool (P8, 2026-09-26): env-overridable so pool swaps (27B rollback,
 # future D-pool moves) never need an edit. Defaults = the live FN pair.
-PREFILL_URL = os.environ.get("GATTLING_P_URL", "http://192.168.2.190:8000")  # f1, kv_producer
-DECODE_URL = os.environ.get("GATTLING_D_URL", "http://192.168.2.193:8100")   # f2, kv_consumer
-PREFILL_HOST = os.environ.get("GATTLING_P_HOST", "192.168.2.190")           # P's NIXL side-channel host (LAN)
+PREFILL_URL = os.environ.get("GATTLING_P_URL", "http://127.0.0.1:8000")  # prefill pool (kv_producer)
+DECODE_URL = os.environ.get("GATTLING_D_URL", "http://127.0.0.1:8100")   # decode pool (kv_consumer)
+PREFILL_HOST = os.environ.get("GATTLING_P_HOST", "127.0.0.1")           # P's NIXL side-channel host (LAN)
 MODEL = os.environ.get("GATTLING_MODEL", "qwen3.8-flash-next")
 ROUTER_MODE = os.environ.get("GATTLING_ROUTER_MODE", "auto")  # auto|always_handoff
 D_TOK_MAX = int(os.environ.get("GATTLING_D_TOK_MAX", "8192"))

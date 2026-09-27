@@ -3,7 +3,7 @@
 **Date:** 2026-09-26 · **Plan:** `qwen-flash-next-two-sparks-plan.md` · **Arms:** A = 1× single-Spark
 (recipe stock, f2) · B = 2× TP2 dual kit (`~/qwen38fn-kit`, f1+f2, YaRN off / 262K for matched flags)
 · C = 1P1D ours (f1 `kv_producer` :8000 → f2 `kv_consumer` :8100, NixlConnector pull-mode, UCX RC
-over soft-RoCE `roceP2p1s0f1`, router `pd_router.py` :8200 on pop-os).
+over soft-RoCE `roceP2p1s0f1`, router `pd_router.py` :8200 on box 1).
 
 Matched flags: MTP-3 + 47k draft vocab, KV fp8, MAX_NUM_SEQS=8, 262K native / YaRN off, same image
 digest (`vllm/vllm-openai:qwen38-flash-next` `d464f3b466fa`) and same checkpoint snapshot on both
@@ -108,11 +108,11 @@ The plan's ~23 GB/s is raw CX-7 link rate; the integrated fabric port has no RDM
 
 ## Repro
 
-- Rig: patched `start.sh` + `.env` on both boxes (`~/Qwen3.8-Flash-Next-Single-DGX-Spark/`), sources
-  of truth in `qwen38fn-1p1d/{env.P,env.D}`; relaunch = `./start.sh` per box (P first).
-- Router: `python3 pd_router.py` on pop-os (:8200, env-overridable pool constants).
-- Benches: `bench/mixed.py` (BENCH_BASE), `bench/structured.py` (--host/--port/--kind),
-  `bench_suite.py` (GATTLING_* envs, GATTLING_TOPO tag), `qwen38fn-1p1d/fn_needle.py` (--durl/--paths).
-- Raw: `bench_results/2026{0926_0934-cx7-rc-no-offload-fn1p1d,0926_1007-direct-no-offload-fn1x-stockf2,0926_1041-direct-no-offload-fn2x-dualkit}.json`,
-  `bench_results/e3-mixed.jsonl` (9 rows: A/B/C × 3 reps).
-- Rollback to GLM: `~/GLM-5.3-Flash-EXL3-2x-DGX-Sparks/./start.sh restart` (slow, ~10–60 min).
+- Rig: this fork on both boxes; sources
+  of truth in `1p1d/{env.P,env.D,env.pair}`; relaunch = `bash 1p1d/start-pair.sh start` (gates P before D).
+- Router: `1p1d/start-router.sh` (or `python3 1p1d/pd_router.py`) on box 1 (:8200, env-overridable pool constants).
+- Benches: `1p1d/bench/mixed.py` (BENCH_BASE), `1p1d/bench/structured.py` (--host/--port/--kind),
+  `1p1d/bench/fn_needle.py` (--durl/--paths/--purl).
+- Raw: internal bench-run JSON (A/B/C × 3 reps); regenerate the mixed money-shot
+  with `bash 1p1d/report.sh` on your own pair.
+- Rollback: relaunch the prior serving pool (single-box or dual-kit `./start.sh`).

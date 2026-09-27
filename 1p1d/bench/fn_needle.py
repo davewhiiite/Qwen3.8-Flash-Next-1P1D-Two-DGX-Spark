@@ -22,11 +22,24 @@ import urllib.request
 sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
 from bench_poc import NEEDLE_ANSWERS, build_prompt  # noqa: E402
 
-P_URL = "http://192.168.2.190:8000"
-D_URL = "http://192.168.2.193:8100"
+def _pair_pins():
+    """Endpoints from 1p1d/env.pair (single source of truth); env FN_* wins."""
+    import os, re
+    pins = {}
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "env.pair")
+    if os.path.exists(path):
+        for line in open(path):
+            m = re.match(r'([A-Z_0-9]+)="(.*)"', line.strip())
+            if m:
+                pins[m.group(1)] = m.group(2)
+    return pins
+
+_pins = _pair_pins()
+P_URL = os.environ.get("FN_P_URL", _pins.get("P_HEALTH", "http://127.0.0.1:8000"))
+D_URL = os.environ.get("FN_D_URL", _pins.get("D_HEALTH", "http://127.0.0.1:8100"))
 CHAT = "/v1/chat/completions"
-MODEL = "qwen3.8-flash-next"
-REMOTE_HOST = "192.168.2.190"
+MODEL = os.environ.get("FN_MODEL", _pins.get("SERVED_MODEL_NAME", "qwen3.8-flash-next"))
+REMOTE_HOST = os.environ.get("FN_P_HOST", _pins.get("P_SIDECHANNEL_IP", "127.0.0.1"))
 BASE = {"model": MODEL, "temperature": 0,
         "chat_template_kwargs": {"enable_thinking": False}}
 QUESTION = ("What is the magic number, the fallback code, and the release tag "
