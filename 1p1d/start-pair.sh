@@ -172,11 +172,14 @@ do_start() {
 
   log "launching P (box 1, kv_producer) — detached, log: $P_REPO/logs/1p1d-launch-P.log"
   bash -c "$(export_env_launch P "$P_REPO" P)"
-  wait_gate "$P_HEALTH" "P (prefill)" "$GATE_TIMEOUT_S" local "$P_CONTAINER"
+  # /v1/models is served only once the engine has loaded the model — the
+  # true readiness D's NIXL side-channel connect needs. /health is mere
+  # liveness: uvicorn answers 200 minutes before the engine is up.
+  wait_gate "$P_HEALTH/v1/models" "P (prefill)" "$GATE_TIMEOUT_S" local "$P_CONTAINER"
 
   log "launching D (box 2, kv_consumer) — detached via ssh, log: $D_REPO/logs/1p1d-launch-D.log"
   dssh "mkdir -p '$D_REPO/logs'; $(export_env_launch D "$D_REPO" D)"
-  wait_gate "$D_HEALTH" "D (decode)" "$GATE_TIMEOUT_S" remote "$D_CONTAINER"
+  wait_gate "$D_HEALTH/v1/models" "D (decode)" "$GATE_TIMEOUT_S" remote "$D_CONTAINER"
 
   log "launching router (box 1, :$ROUTER_PORT)"
   bash "$SCRIPT_DIR/start-router.sh"
@@ -220,9 +223,9 @@ case "$MODE" in
     echo
     log "DRY RUN — resolved commands (nothing executed):"
     echo "  [box 1] $(export_env_launch P "$P_REPO" P)"
-    echo "  [gate ] curl $P_HEALTH/health   until 200 (<= ${GATE_TIMEOUT_S}s)"
+    echo "  [gate ] curl $P_HEALTH/v1/models   until 200 (<= ${GATE_TIMEOUT_S}s)"
     echo "  [box 2] ssh $D_SSH \"mkdir -p '$D_REPO/logs'; $(export_env_launch D "$D_REPO" D)\""
-    echo "  [gate ] curl $D_HEALTH/health   until 200 (<= ${GATE_TIMEOUT_S}s)"
+    echo "  [gate ] curl $D_HEALTH/v1/models   until 200 (<= ${GATE_TIMEOUT_S}s)"
     echo "  [box 1] bash $SCRIPT_DIR/start-router.sh"
     echo "  [gate ] curl $ROUTER_HEALTH/v1/models until 200"
     echo
