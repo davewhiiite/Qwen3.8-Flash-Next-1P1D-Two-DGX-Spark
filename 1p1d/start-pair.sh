@@ -82,7 +82,7 @@ wait_gate() { # $1=url $2=label $3=timeout_s $4=where $5=container
   local url="$1" label="$2" timeout="$3" where="$4" name="$5" t0 now code
   t0=$(date +%s); log "gating $label: polling $url (timeout ${timeout}s)"
   while :; do
-    code=$(http_code "$url")
+    code=$(http_code "$url" || true)
     if [ "$code" = 200 ]; then
       log "$label READY in $(( $(date +%s) - t0 ))s"
       return 0
@@ -103,8 +103,8 @@ wait_gate() { # $1=url $2=label $3=timeout_s $4=where $5=container
 }
 
 export_env_launch() { # $1=envfile $2=repodir $3=logname — detached upstream start.sh
-  printf '( set -a; . "%s/1p1d/env.%s"; cd "%s" && setsid nohup ./start.sh > logs/1p1d-launch-%s.log 2>&1 < /dev/null & )' \
-    "$2" "$1" "$2" "$3"
+  printf 'mkdir -p "%s/logs"; ( set -a; . "%s/1p1d/env.%s"; cd "%s" && setsid nohup ./start.sh > logs/1p1d-launch-%s.log 2>&1 < /dev/null & )' \
+    "$2" "$2" "$1" "$2" "$3"
 }
 
 # ---------------------------------------------------------------------------
@@ -145,11 +145,32 @@ ensure_image_and_weights() { # $1=where $2=repodir — pull image + download.sh 
   fi
 }
 
+ensure_env_file() { # $1=where $2=repo $3=side — upstream start.sh hard-errors
+                    # without .env; a fresh fork clone has none (it may hold
+                    # HF_TOKEN, so it's gitignored). Synthesize from the pool
+                    # env, MINUS the role pin — a plain ./start.sh must stay a
+                    # stock single-Spark server. The pair launch overrides
+                    # everything via upstream's env-wins rule.
+  local where="$1" repo="$2" side="$3"
+  local probe="grep -Eq '^[A-Z_0-9]+=' '$repo/.env'"
+  if [ "$where" = local ]; then
+    $probe && return 0
+    log "no .env in $repo — synthesizing from 1p1d/env.$side (KV_TRANSFER_ROLE stripped)"
+    grep -E '^[A-Z_0-9]+=' "$SCRIPT_DIR/env.$side" | grep -v '^KV_TRANSFER_ROLE=' > "$repo/.env"
+  else
+    dssh "$probe" && return 0
+    log "no .env on box 2 — synthesizing from its 1p1d/env.$side (KV_TRANSFER_ROLE stripped)"
+    dssh "grep -E '^[A-Z_0-9]+=' '$repo/1p1d/env.$side' | grep -v '^KV_TRANSFER_ROLE=' > '$repo/.env'"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Actions
 
 do_start() {
   preflight
+  ensure_env_file local "$P_REPO" P
+  ensure_env_file remote "$D_REPO" D
   ensure_image_and_weights local "$P_REPO"
 
   log "launching P (box 1, kv_producer) — detached, log: $P_REPO/logs/1p1d-launch-P.log"
@@ -209,6 +230,8 @@ case "$MODE" in
     echo "  [gate ] curl $ROUTER_HEALTH/v1/models until 200"
     echo
     log "read-only checks:"
+    [ -s "$P_REPO/.env" ] && log "box 1 .env present" || warn "box 1 .env missing (start synthesizes it from env.P, KV role stripped)"
+    dssh "[ -s '$D_REPO/.env' ]" && log "box 2 .env present" || warn "box 2 .env missing (start synthesizes it from env.D, KV role stripped)"
     docker image inspect "$IMAGE" >/dev/null 2>&1 && log "box 1 image present: $IMAGE" || warn "box 1 image missing: $IMAGE (start would pull)"
     dssh "docker image inspect '$IMAGE' >/dev/null 2>&1" && log "box 2 image present: $IMAGE" || warn "box 2 image missing: $IMAGE (start would pull)"
     (cd "$P_REPO" && [ -e "${HF_HOME:-$HOME/.cache/huggingface}/hub/models--Mia-AiLab--Qwen3.8-Flash-Next-NVFP4/refs/main" ] && log "box 1 checkpoint snapshot present" || warn "box 1 checkpoint missing (start runs ./download.sh)")

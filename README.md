@@ -103,6 +103,8 @@ cd Qwen3.8-Flash-Next-Single-DGX-Spark
 # 3. pin YOUR rig (box 1 and box 2 keep identical copies)
 $EDITOR 1p1d/env.pair               # ssh pin, repo paths, LAN/fabric IPs
 $EDITOR 1p1d/env.P 1p1d/env.D       # the four *_IP pins per box (see comments)
+#    (no .env needed — start-pair.sh synthesizes one per box from env.P/env.D
+#     on first start, KV role stripped so a plain ./start.sh stays stock)
 
 # 4. inspect, then launch (P gates healthy first — D needs P's NIXL side
 #    channel at init; cold start ~11 min/box, first launch adds the ~27 GB
