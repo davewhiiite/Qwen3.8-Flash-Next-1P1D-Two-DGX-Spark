@@ -180,6 +180,10 @@ do_start() {
 
   log "launching P (box 1, kv_producer) — detached, log: $P_REPO/logs/1p1d-launch-P.log"
   bash -c "$(export_env_launch P "$P_REPO" P)"
+  # let the detached start.sh reach its docker rm before the first poll —
+  # otherwise a still-serving previous instance answers /v1/models and the
+  # gate passes on a container that is about to be killed.
+  sleep 30
   # /v1/models is served only once the engine has loaded the model — the
   # true readiness D's NIXL side-channel connect needs. /health is mere
   # liveness: uvicorn answers 200 minutes before the engine is up.
@@ -187,6 +191,7 @@ do_start() {
 
   log "launching D (box 2, kv_consumer) — detached via ssh, log: $D_REPO/logs/1p1d-launch-D.log"
   dssh "mkdir -p '$D_REPO/logs'; $(export_env_launch D "$D_REPO" D)"
+  sleep 30
   wait_gate "$D_HEALTH/v1/models" "D (decode)" "$GATE_TIMEOUT_S" remote "$D_CONTAINER"
 
   log "launching router (box 1, :$ROUTER_PORT)"

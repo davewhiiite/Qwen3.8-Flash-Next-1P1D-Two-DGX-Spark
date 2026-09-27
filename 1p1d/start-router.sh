@@ -29,6 +29,7 @@ docker rm -f "$ROUTER_CONTAINER" >/dev/null 2>&1 || true
 
 docker run -d --name "$ROUTER_CONTAINER" \
   --restart unless-stopped --network host \
+  --entrypoint python3 \
   -w /vllm-workspace \
   -v "$SCRIPT_DIR/pd_router.py:/r/pd_router.py:ro" \
   "${EXTRA_ENV[@]}" \
