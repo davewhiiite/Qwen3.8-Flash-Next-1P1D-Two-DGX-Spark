@@ -140,3 +140,20 @@
 #   files/mtp_patched.py,
 #   files/ple_offload/*.py    generated from the .orig copies on every launch
 #   files/block_drop/         orig/ from the image, patched copies generated per launch
+
+# --- 1p1d fork layer (two-Spark prefill/decode disaggregation) ---------
+!/1p1d/
+!/.github/ISSUE_TEMPLATE/1p1d-results.md
+!/1p1d/env.P
+!/1p1d/env.D
+!/1p1d/env.pair
+!/1p1d/start-pair.sh
+!/1p1d/start-router.sh
+!/1p1d/pd_router.py
+!/1p1d/report.sh
+!/1p1d/RESULTS.md
+!/1p1d/REPORT.md
+!/1p1d/bench/mixed.py
+!/1p1d/bench/structured.py
+!/1p1d/bench/fn_needle.py
+!/1p1d/bench/bench_poc.py

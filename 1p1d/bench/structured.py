@@ -1,3 +1,5 @@
+# 1P1D fork copy of ../bench/structured.py — endpoints default to the PD router (:8200).
+# Upstream harness + AGPL header preserved; see fork root bench/ for originals.
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 MiaAI Lab (https://x.com/MiaAI_lab)
@@ -112,7 +114,7 @@ def level(url, model, max_tokens, c, reps):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--port", type=int, default=8888)
+    ap.add_argument("--port", type=int, default=8200)
     ap.add_argument("--model", default="Qwen3.8-Flash-Next")
     ap.add_argument("--kind", choices=["structured", "prose"], default="structured")
     ap.add_argument("--max-tokens", type=int, default=400)

@@ -1,3 +1,5 @@
+# 1P1D fork copy of ../bench/mixed.py — endpoints default to the PD router (:8200).
+# Upstream harness + AGPL header preserved; see fork root bench/ for originals.
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 MiaAI Lab (https://x.com/MiaAI_lab)
@@ -24,7 +26,7 @@ import argparse, json, statistics, sys, threading, time, urllib.request
 # gattling E3: BASE/MODEL env-overridable so this harness runs unmodified
 # against any arm (router :8200, stock f2 :8100, dual kit :8888).
 import os
-BASE = os.environ.get("BENCH_BASE", "http://localhost:8888")
+BASE = os.environ.get("BENCH_BASE", "http://127.0.0.1:8200")
 MODEL = os.environ.get("BENCH_MODEL", "qwen3.8-flash-next")
 # Same filler decodebench.py builds its contexts from: ~25 tokens per entry.
 FILLER = ("Entry {i:06d}: the quarterly logistics audit recorded a routine "

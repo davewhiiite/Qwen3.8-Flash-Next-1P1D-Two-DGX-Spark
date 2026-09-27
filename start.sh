@@ -104,6 +104,7 @@ _CLI_PORT="${PORT:-}"
 _CLI_KV_CACHE_DTYPE="${KV_CACHE_DTYPE:-}"
 _CLI_BIND="${BIND:-}"
 _CLI_READY_TIMEOUT_S="${READY_TIMEOUT_S:-}"
+_CLI_KV_TRANSFER_ROLE="${KV_TRANSFER_ROLE:-}"
 
 # Knobs that are NOT read through an explicit _CLI_ variable above still have
 # to honour "environment > .env": sourcing .env would otherwise overwrite them.
@@ -316,6 +317,17 @@ MTP_DISABLE_BLOCK_DROP="${MTP_DISABLE_BLOCK_DROP:-0}"
 # (files/patch_block_drop.py) when this knob is 1 and MTP is on.
 [[ "$MTP_DISABLE_BLOCK_DROP" == 0 || "$MTP_DISABLE_BLOCK_DROP" == 1 ]] \
     || err "MTP_DISABLE_BLOCK_DROP must be 0 or 1"
+# gattling 1P1D PoC (qwen-flash-next-two-sparks-plan.md §6): NIXL kv-transfer
+# role for PD disaggregation across the Spark pair over the CX-7 fabric.
+# Empty keeps the recipe a plain single-Spark server (the published
+# baseline); kv_producer/kv_consumer build the --kv-transfer-config in
+# Step 5. EXTRA_VLLM_ARGS cannot carry the quoted JSON (contract above),
+# hence this dedicated knob, same pattern as the speculative-config one.
+KV_TRANSFER_ROLE="${_CLI_KV_TRANSFER_ROLE:-${KV_TRANSFER_ROLE:-}}"
+case "$KV_TRANSFER_ROLE" in
+    "" | kv_producer | kv_consumer) ;;
+    *) err "KV_TRANSFER_ROLE must be empty, kv_producer or kv_consumer (got: '$KV_TRANSFER_ROLE')" ;;
+esac
 V030="${V030:-false}"
 V030_KV_GIB="${V030_KV_GIB:-12}"
 V030_MODEL_ID="nvidia/Qwen3.8-Flash-Next-NVFP4"
@@ -1079,6 +1091,12 @@ if [[ -n "$_CG_SIZES" ]]; then
 else
     VLLM_ARGS+=("--compilation-config" "$(printf "'{\"mode\":%s,\"cudagraph_mode\":\"%s\"}'" "$COMPILATION_MODE" "$CUDAGRAPH_MODE")")
 fi
+# gattling 1P1D PoC: NIXL PD seam. The element carries its own single quotes
+# (printf pattern above) so the UNQUOTED LAUNCH_EOF heredoc below writes the
+# JSON into docker's arg list intact.
+if [[ -n "$KV_TRANSFER_ROLE" ]]; then
+    VLLM_ARGS+=("--kv-transfer-config" "$(printf "'{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"%s\",\"kv_connector_extra_config\":{\"backends\":[\"UCX\"],\"enforce_handshake_compat\":false}}'" "$KV_TRANSFER_ROLE")")
+fi
 # EXTRA_VLLM_ARGS is word-split with shell-word semantics, so quoting inside
 # the value is not supported (same contract as EXTRA_DOCKER_ARGS).
 [[ -n "$EXTRA_VLLM_ARGS" ]] && { read -ra _EXTRA_VLLM <<< "$EXTRA_VLLM_ARGS"; VLLM_ARGS+=("${_EXTRA_VLLM[@]}"); }
@@ -1119,6 +1137,7 @@ info "  MTP:        $MTP_NUM_SPECULATIVE_TOKENS $( [[ "$MTP_NUM_SPECULATIVE_TOKE
 info "  Draft vocab: ${MTP_DRAFT_VOCAB:-full (248320)}   Disable block drop: $MTP_DISABLE_BLOCK_DROP"
 info "  Graphs:     $CUDAGRAPH_MODE  capture=${_CG_SIZES:-vllm-default}  compile-mode=$COMPILATION_MODE"
 info "  Port:       $PORT  (bind $BIND)"
+[[ -n "$KV_TRANSFER_ROLE" ]] && info "  P/D role:    $KV_TRANSFER_ROLE (NixlConnector, UCX)"
 info ""
 
 if [[ "$V030" == "true" ]]; then
