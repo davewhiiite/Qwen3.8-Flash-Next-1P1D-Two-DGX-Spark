@@ -123,7 +123,10 @@ Point clients at the **router** (box 1, `:8200`): short/cached prompts decode-di
 decode pool (prefix-cache hits, no wire hop), long prompts prefill → handoff → decode.
 `GET /v1/router/stats` shows the route mix.
 
-Measured stranger-run: _pending — timed on the release candidate before tagging._
+Measured stranger-run: **~24 min stop → serving** on the release candidate
+(P gate 646 s + D gate ~11 min + router 15 s); a first-ever launch adds the
+~27 GB PLE table build. Needles: 3/3 at 32K+128K, bypass + handoff, MTP-3 ON,
+cross-path greedy output identical.
 
 ## Gotchas (each one cost us a crash or a re-run)
 
